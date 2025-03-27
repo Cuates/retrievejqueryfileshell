@@ -1,54 +1,56 @@
-#!/bin/sh
+#!/bin/bash
 #
 #        File: retrieve_jquery_files.sh
 #     Created: 07/25/2020
-#     Updated: 07/25/2020
+#     Updated: 03/27/2025
 #  Programmer: Cuates
-#  Updated By: Cuates
+#  Updated By: AI Assistant
 #     Purpose: Retrieve jQuery and jQuery-UI files from Google APIs website
-#
 
-# Initialize date
-DATE=$(date +"%d-%m-%Y %H:%M:%S")
+# Enable strict mode for better error handling
+set -o errexit  # Exit immediately if a command exits with a non-zero status
+set -o nounset  # Treat unset variables as an error when substituting
+set -o pipefail # Exit with a non-zero status if any command in a pipeline fails
 
-# Initialize array of possible jquery and jqueryui
+# Create required directories if they don't exist
+mkdir -p /var/www/html/{Temp_Directory,Doc_Directory}
+
+# Define arrays of jQuery and jQuery UI versions to download
 jqueryarr=("1.7" "2.1.1" "3.1.1" "3.4.1")
 jqueryuiarr=("1.11.2" "1.12.1")
 
-# Loop through array
-for i in ${jqueryarr[@]}
-do
-  # jquery status
-  jqueryStatus=$(curl -s --head https://ajax.googleapis.com/ajax/libs/jquery/$i/jquery.min.js | head -n 1 | grep "200 OK")
+# Function to log messages with timestamp
+log_message() {
+    echo "[$(date +"%d-%m-%Y %H:%M:%S")] $1" >> /var/www/html/Doc_Directory/retrieve_jquery_log.txt
+}
 
-  # Check if value is empty
-  if [ -z "$jqueryStatus" ]; then
-    # Write to log file
-    echo "["$DATE"] File does not exist for jquery-"$i".min.js" >> /var/www/html/Doc_Directory/retrieve_jquery_log.txt
-  else
-    # Else pull file from web
-    curl -o /var/www/html/Temp_Directory/jquery-$i.min.js https://ajax.googleapis.com/ajax/libs/jquery/$i/jquery.min.js > /dev/null
+# Function to download and log jQuery/jQuery UI files
+download_file() {
+    local url="$1"
+    local filename="$2"
+    local http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+    
+    if [ "$http_code" -eq 200 ]; then
+        curl -sSf -o "/var/www/html/Temp_Directory/$filename" "$url"
+        log_message "Retrieved $filename"
+    else
+        log_message "Failed: $filename (HTTP $http_code)"
+    fi
+}
 
-    # Write to log file
-    echo "["$DATE"] File jquery-"$i".min.js retrieved." >> /var/www/html/Doc_Directory/retrieve_jquery_log.txt
-  fi
+# Download jQuery files
+for version in "${jqueryarr[@]}"; do
+    url="https://ajax.googleapis.com/ajax/libs/jquery/$version/jquery.min.js"
+    filename="jquery-$version.min.js"
+    download_file "$url" "$filename"
 done
 
-# Loop through array
-for j in ${jqueryuiarr[@]}
-do
-  # jquery ui status
-  jqueryuiStatus=$(curl -s --head https://ajax.googleapis.com/ajax/libs/jqueryui/$j/jquery-ui.min.js | head -n 1 | grep "200 OK")
-
-  # Check if value is empty
-  if [ -z "$jqueryuiStatus" ]; then
-    # Write to log file
-    echo "["$DATE"] File does not exist for jquery-ui-"$j".min.js" >> /var/www/html/Doc_Directory/retrieve_jquery_log.txt
-  else
-    # Else pull file from web
-    curl -o /var/www/html/Temp_Directory/jquery-ui-$j.min.js https://ajax.googleapis.com/ajax/libs/jqueryui/$j/jquery-ui.min.js > /dev/null
-
-    # Write to log file
-    echo "["$DATE"] File jquery-ui-"$j".min.js retrieved." >> /var/www/html/Doc_Directory/retrieve_jquery_log.txt
-  fi
+# Download jQuery UI files
+for version in "${jqueryuiarr[@]}"; do
+    url="https://ajax.googleapis.com/ajax/libs/jqueryui/$version/jquery-ui.min.js"
+    filename="jquery-ui-$version.min.js"
+    download_file "$url" "$filename"
 done
+
+# Script execution completed
+log_message "Script execution completed"
